@@ -1,0 +1,27 @@
+{
+  "name": "petji-blog",
+  "version": "1.0.0",
+  "description": "네이버 블로그 RSS를 주기적으로 수집해 앱테크·이벤트·포인트 정보를 한 페이지에 모아주는 자동화 사이트.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jjss4207/petji-blog.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jjss4207/petji-blog/issues"
+  },
+  "homepage": "https://github.com/jjss4207/petji-blog#readme",
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}
