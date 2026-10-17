@@ -25,7 +25,41 @@ function escapeHtml(text) {
     .replace(/"/g, "&quot;");
 }
 
-function buildPost(items) {
+const { fetchThumbnail } = require("./lib/thumbnail");
+
+// Inline styles only -- no <style> block or external font link. Most blog
+// platforms (Tistory included) strip <style>/<link> tags from post content
+// when saving, so anything not inline on the element itself gets dropped.
+const COLOR = {
+  accent: "#0e7c66",
+  ink: "#14231f",
+  inkSoft: "#4b5c56",
+  border: "#d9e2dd",
+  surface: "#ffffff",
+};
+const FONT = "'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif";
+
+function buildCard(it) {
+  const eyebrow = it.category ? escapeHtml(it.category) : "앱테크";
+  const image = it.thumbnail
+    ? `<img src="${it.thumbnail}" alt="" style="display:block;width:100%;height:180px;object-fit:cover;" />`
+    : "";
+  return `  <div style="background:${COLOR.surface};border:1px solid ${COLOR.border};border-radius:14px;overflow:hidden;margin-bottom:16px;font-family:${FONT};">
+    ${image}
+    <div style="padding:20px 22px;">
+      <p style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:${COLOR.accent};font-weight:700;margin:0 0 8px;">${eyebrow}</p>
+      <h3 style="font-size:19px;line-height:1.35;margin:0 0 10px;color:${COLOR.ink};">${escapeHtml(it.title)}</h3>
+      <p style="font-size:14px;line-height:1.6;color:${COLOR.ink};margin:0 0 14px;">${escapeHtml(it.excerpt)}</p>
+      <a href="${escapeHtml(it.link)}" target="_blank" rel="noopener" style="display:inline-block;font-size:12.5px;color:${COLOR.accent};text-decoration:none;border-bottom:1px solid currentColor;">${escapeHtml(it.source)} · 원문 보기</a>
+    </div>
+  </div>`;
+}
+
+async function buildPost(items) {
+  const withThumbnails = await Promise.all(
+    items.map(async (it) => ({ ...it, thumbnail: await fetchThumbnail(it.link) }))
+  );
+
   const today = new Date().toLocaleDateString("ko-KR", {
     timeZone: "Asia/Seoul",
     year: "numeric",
@@ -34,23 +68,19 @@ function buildPost(items) {
   });
   const title = `${today} 인터넷 폐지줍기 모음 (${items.length}건)`;
 
-  const sections = items
-    .map(
-      (it) => `
-<h3>${escapeHtml(it.title)}</h3>
-<p>${escapeHtml(it.excerpt)}</p>
-<p>출처: ${escapeHtml(it.source)} | <a href="${escapeHtml(it.link)}" target="_blank" rel="noopener">원문 보기</a></p>
-<hr>`
-    )
-    .join("\n");
+  const header = `<div style="margin-bottom:24px;font-family:${FONT};">
+    <p style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:${COLOR.accent};font-weight:700;margin:0 0 8px;">Petji Zupgi · ${escapeHtml(today)}</p>
+    <p style="font-size:14px;color:${COLOR.inkSoft};margin:0;">오늘 새로 올라온 앱테크·이벤트·포인트 정보 ${items.length}건을 모았습니다.</p>
+  </div>`;
 
-  const html = `<p>오늘 새로 올라온 앱테크·이벤트·포인트 정보 ${items.length}건을 모았습니다.</p>
-${sections}`;
+  const cards = withThumbnails.map(buildCard).join("\n");
+
+  const html = `${header}\n${cards}`;
 
   return { title, html };
 }
 
-function main() {
+async function main() {
   const items = loadJson(ITEMS_PATH, []);
   const used = new Set(loadJson(USED_PATH, []));
 
@@ -61,10 +91,11 @@ function main() {
   }
 
   const batch = unused.slice(0, BATCH_SIZE);
-  const post = buildPost(batch);
+  const post = await buildPost(batch);
 
   const drafts = loadJson(DRAFTS_PATH, []);
   drafts.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     title: post.title,
     html: post.html,
     itemGuids: batch.map((it) => it.guid),

@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>티스토리 예약 발행 대시보드</title>
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --card: #ffffff;
+    --border: #e3e3e6;
+    --text: #1d1d1f;
+    --muted: #70707a;
+    --accent: #2563eb;
+    --accent-weak: #eff4ff;
+    --danger: #dc2626;
+    --ok: #16a34a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Pretendard", "Apple SD Gothic Neo", sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+  .banner {
+    display: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 20px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+  }
+  .banner.show { display: block; }
+  .banner.info { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 14px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input[type=text], input[type=datetime-local], textarea {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text);
+    background: #fff;
+  }
+  textarea { resize: vertical; min-height: 160px; line-height: 1.5; }
+  .field { margin-bottom: 14px; }
+  button {
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-ghost { background: transparent; color: var(--danger); padding: 4px 8px; font-weight: 500; font-size: 13px; }
+  .btn-ghost:hover { text-decoration: underline; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  td.title { font-weight: 500; max-width: 300px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge.pending { background: var(--accent-weak); color: var(--accent); }
+  .badge.published { background: #ecfdf5; color: var(--ok); }
+  .badge.failed { background: #fef2f2; color: var(--danger); }
+  .empty { color: var(--muted); font-size: 13px; padding: 10px 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  code { background: #f1f1f3; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .draft-item { border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .draft-item:last-child { margin-bottom: 0; }
+  .draft-item h3 { margin: 0 0 8px; font-size: 14px; }
+  .draft-preview {
+    font-size: 13px;
+    color: var(--muted);
+    max-height: 72px;
+    overflow: hidden;
+    margin: 0 0 12px;
+    line-height: 1.5;
+  }
+  .draft-actions { display: flex; gap: 8px; align-items: center; }
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+  .modal-box {
+    background: #fff;
+    border-radius: 12px;
+    max-width: 900px;
+    width: 100%;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .modal-body { overflow-y: auto; padding: 0; }
+  .modal-body img { display: block; width: 100%; }
+  .btn-secondary { background: #fff; border: 1px solid var(--border); color: var(--text); }
+  .btn-secondary:hover { background: #f5f5f6; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>티스토리 예약 발행 대시보드</h1>
+    <p class="sub">글을 작성하고 원하는 시간을 지정하면, 서버가 그 시간에 자동으로 티스토리에 발행합니다.</p>
+
+    <div id="loginBanner" class="banner">
+      로그인 세션이 없습니다. 터미널에서 <code>node scripts/tistory-login.js https://jjss154.tistory.com</code> 를 실행해 한 번 로그인해주세요.
+    </div>
+
+    <div id="autoBanner" class="banner info" style="display:none;"></div>
+
+    <div class="card">
+      <h2>검토 대기 중인 초안</h2>
+      <p class="hint" style="margin-top:-6px;">자동 수집은 여기까지만 합니다. 내용을 확인하고 "지금 발행"을 눌러야 실제로 티스토리에 올라갑니다.</p>
+      <div id="draftList"></div>
+      <p class="empty" id="draftEmpty" style="display:none;">대기 중인 초안이 없습니다.</p>
+    </div>
+
+    <div class="card">
+      <h2>새 글 예약</h2>
+      <form id="postForm">
+        <div class="field">
+          <label for="title">제목</label>
+          <input type="text" id="title" required />
+        </div>
+        <div class="field">
+          <label for="content">본문</label>
+          <textarea id="content" required placeholder="줄바꿈으로 문단을 구분해 적으면 자동으로 문단 태그가 붙습니다. HTML을 직접 써도 됩니다."></textarea>
+        </div>
+        <div class="field">
+          <label for="scheduledAt">발행 예약 시간</label>
+          <input type="datetime-local" id="scheduledAt" required />
+        </div>
+        <button type="submit" class="btn-primary">예약 등록</button>
+        <p class="hint">서버는 1분마다 예약 목록을 확인해 시간이 된 글을 자동 발행합니다. <code>npm run dashboard</code> 로 띄운 이 서버가 계속 켜져 있어야 합니다.</p>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>예약된 글</h2>
+      <table id="scheduledTable">
+        <thead><tr><th>제목</th><th>예약 시간</th><th>상태</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="empty" id="scheduledEmpty" style="display:none;">예약된 글이 없습니다.</p>
+    </div>
+
+    <div class="card">
+      <h2>발행 로그</h2>
+      <table id="publishedTable">
+        <thead><tr><th>제목</th><th>발행 시간</th><th>링크</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="empty" id="publishedEmpty" style="display:none;">아직 발행된 글이 없습니다.</p>
+    </div>
+  </div>
+
+  <div id="previewModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>실제 미리보기 (실제 블로그 화면 그대로)</span>
+        <button id="previewClose" class="btn-secondary">닫기</button>
+      </div>
+      <div class="modal-body">
+        <img id="previewImg" alt="미리보기" />
+      </div>
+    </div>
+  </div>
+
+<script>
+let confirmingCancelId = null;
+let cancelResetTimer = null;
+let confirmingDiscardId = null;
+let discardResetTimer = null;
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function fmt(iso) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  return d.toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function toHtml(text) {
+  if (/<[a-z][\s\S]*>/i.test(text)) return text; // already looks like HTML
+  return text
+    .split(/\n{2,}/)
+    .filter((p) => p.trim())
+    .map((para) => `<p>${escapeHtml(para).replace(/\n/g, "<br>")}</p>`)
+    .join("\n");
+}
+
+async function load() {
+  const res = await fetch("/api/posts");
+  const data = await res.json();
+
+  document.getElementById("loginBanner").classList.toggle("show", !data.loggedIn);
+
+  const autoBanner = document.getElementById("autoBanner");
+  if (data.autoCollect && data.autoCollect.enabled) {
+    autoBanner.style.display = "block";
+    autoBanner.textContent = `AI 편집 켜짐: 매일 ${data.autoCollect.time}에 그날 모인 글을 Claude가 직접 읽고 정리해서(제목 다듬기, 기간/혜택/참여, 추천코드 글 제외) 초안으로 올려둡니다. 자동 발행은 안 함 — 아래에서 직접 확인 후 발행해주세요.`;
+  } else {
+    autoBanner.style.display = "none";
+  }
+
+  const draftListEl = document.getElementById("draftList");
+  draftListEl.innerHTML = "";
+  const drafts = data.drafts || [];
+  document.getElementById("draftEmpty").style.display = drafts.length ? "none" : "block";
+  for (const d of drafts) {
+    const box = document.createElement("div");
+    box.className = "draft-item";
+    const preview = d.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+    box.innerHTML = `
+      <h3>${escapeHtml(d.title)}</h3>
+      <p class="draft-preview">${escapeHtml(preview)}…</p>
+      <div class="draft-actions">
+        <button class="btn-primary" data-publish="${d.id}">지금 발행</button>
+        <button class="btn-secondary" data-preview="${d.id}">실제 미리보기</button>
+        <button class="btn-ghost" data-discard="${d.id}">${d.id === confirmingDiscardId ? "정말 삭제?" : "삭제"}</button>
+      </div>
+    `;
+    draftListEl.appendChild(box);
+  }
+  draftListEl.querySelectorAll("button[data-preview]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = "불러오는 중…";
+      try {
+        const res = await fetch(`/api/drafts/${btn.dataset.preview}/preview.png`);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || "미리보기를 불러오지 못했습니다.");
+        }
+        const blob = await res.blob();
+        document.getElementById("previewImg").src = URL.createObjectURL(blob);
+        document.getElementById("previewModal").style.display = "flex";
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+  });
+  draftListEl.querySelectorAll("button[data-publish]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      btn.textContent = "발행 중…";
+      const res = await fetch(`/api/drafts/${btn.dataset.publish}/publish`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "발행에 실패했습니다.");
+        btn.disabled = false;
+        btn.textContent = "지금 발행";
+        return;
+      }
+      load();
+    });
+  });
+  draftListEl.querySelectorAll("button[data-discard]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.discard;
+      if (confirmingDiscardId !== id) {
+        confirmingDiscardId = id;
+        load();
+        clearTimeout(discardResetTimer);
+        discardResetTimer = setTimeout(() => {
+          if (confirmingDiscardId === id) confirmingDiscardId = null;
+          load();
+        }, 3000);
+        return;
+      }
+      clearTimeout(discardResetTimer);
+      confirmingDiscardId = null;
+      await fetch(`/api/drafts/${id}`, { method: "DELETE" });
+      load();
+    });
+  });
+
+  const sBody = document.querySelector("#scheduledTable tbody");
+  sBody.innerHTML = "";
+  const scheduled = data.scheduled || [];
+  document.getElementById("scheduledEmpty").style.display = scheduled.length ? "none" : "block";
+  const badgeLabel = { pending: "대기중", published: "발행완료", failed: "실패" };
+  for (const p of scheduled) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="title">${escapeHtml(p.title)}</td>
+      <td>${fmt(p.scheduledAt)}</td>
+      <td><span class="badge ${p.status}">${badgeLabel[p.status] || p.status}</span>${p.error ? `<div class="hint">${escapeHtml(p.error)}</div>` : ""}</td>
+      <td>${p.status === "pending" ? `<button class="btn-ghost" data-id="${p.id}">${p.id === confirmingCancelId ? "정말 취소?" : "취소"}</button>` : ""}</td>
+    `;
+    sBody.appendChild(tr);
+  }
+  sBody.querySelectorAll("button[data-id]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      if (confirmingCancelId !== id) {
+        confirmingCancelId = id;
+        load();
+        clearTimeout(cancelResetTimer);
+        cancelResetTimer = setTimeout(() => {
+          if (confirmingCancelId === id) confirmingCancelId = null;
+          load();
+        }, 3000);
+        return;
+      }
+      clearTimeout(cancelResetTimer);
+      confirmingCancelId = null;
+      await fetch(`/api/posts/${id}`, { method: "DELETE" });
+      load();
+    });
+  });
+
+  const pBody = document.querySelector("#publishedTable tbody");
+  pBody.innerHTML = "";
+  const published = data.published || [];
+  document.getElementById("publishedEmpty").style.display = published.length ? "none" : "block";
+  for (const p of published) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="title">${escapeHtml(p.title)}</td>
+      <td>${fmt(p.publishedAt)}</td>
+      <td>${p.url ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">보기</a>` : "-"}</td>
+    `;
+    pBody.appendChild(tr);
+  }
+}
+
+document.getElementById("postForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const title = document.getElementById("title").value.trim();
+  const content = document.getElementById("content").value;
+  const scheduledAtLocal = document.getElementById("scheduledAt").value;
+  if (!title || !content || !scheduledAtLocal) return;
+
+  const res = await fetch("/api/posts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title,
+      html: toHtml(content),
+      scheduledAt: new Date(scheduledAtLocal).toISOString(),
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.error || "등록에 실패했습니다.");
+    return;
+  }
+  e.target.reset();
+  load();
+});
+
+document.getElementById("previewClose").addEventListener("click", () => {
+  document.getElementById("previewModal").style.display = "none";
+  document.getElementById("previewImg").src = "";
+});
+document.getElementById("previewModal").addEventListener("click", (e) => {
+  if (e.target.id === "previewModal") {
+    document.getElementById("previewModal").style.display = "none";
+    document.getElementById("previewImg").src = "";
+  }
+});
+
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>

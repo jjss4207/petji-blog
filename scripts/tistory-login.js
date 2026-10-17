@@ -7,7 +7,13 @@ const path = require("path");
 const { chromium } = require("playwright");
 
 const AUTH_FILE = path.join(__dirname, "..", ".auth", "tistory-state.json");
-const LOGIN_URL = "https://www.tistory.com/auth/login";
+const BLOG_URL = process.argv[2];
+if (!BLOG_URL) {
+  console.error("Usage: node tistory-login.js https://yourid.tistory.com");
+  process.exit(1);
+}
+const TARGET_PREFIX = `${BLOG_URL.replace(/\/$/, "")}/manage`;
+const LOGIN_URL = `https://www.tistory.com/auth/login?redirectUrl=${encodeURIComponent(TARGET_PREFIX + "/newpost/")}`;
 const MAX_WAIT_MS = 5 * 60 * 1000;
 const POLL_MS = 2000;
 
@@ -24,7 +30,7 @@ async function main() {
   while (Date.now() - start < MAX_WAIT_MS) {
     await page.waitForTimeout(POLL_MS);
     const url = page.url();
-    if (!url.includes("/auth/login")) {
+    if (url.startsWith(TARGET_PREFIX)) {
       loggedIn = true;
       break;
     }
@@ -35,6 +41,11 @@ async function main() {
     await browser.close();
     process.exit(1);
   }
+
+  // Give the redirect chain (kakao -> tistory -> blog subdomain) time to finish
+  // so every necessary cookie is issued before we snapshot the session.
+  await page.waitForTimeout(5000);
+  console.log("현재 페이지:", page.url());
 
   const fs = require("fs");
   fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
