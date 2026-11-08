@@ -57,7 +57,7 @@ app.get("/api/posts", (req, res) => {
     drafts: loadJson(DRAFTS_PATH, []),
     scheduled: loadJson(POSTS_PATH, []),
     published: loadJson(PUBLISHED_LOG_PATH, []).slice(-30).reverse(),
-    loggedIn: fs.existsSync(AUTH_FILE),
+    loggedIn: fs.existsSync(AUTH_FILE) && !sessionExpired,
     blogUrl: getBlogUrl(),
     autoCollect: getAutoConfig(),
   });
@@ -161,6 +161,16 @@ app.delete("/api/drafts/:id", (req, res) => {
 });
 
 let isBrowserBusy = false;
+let sessionExpired = false;
+
+// Tistory's login cookie (TSSESSION) is a session cookie the server times out
+// when idle, and the saved file was never rewritten after login -- so it died
+// after a few weeks. Re-saving the state after every successful browser visit
+// keeps whatever cookies the server rolls over.
+async function saveSession(context) {
+  await context.storageState({ path: AUTH_FILE });
+  sessionExpired = false;
+}
 
 // Opens a Tistory session and publishes one { title, html } draft. Shared by
 // the scheduled-posts auto-publish loop and the manual "지금 발행" button.
@@ -180,6 +190,7 @@ async function publishNow(draft) {
     const context = await browser.newContext({ storageState: AUTH_FILE });
     const page = await context.newPage();
     const result = await publishDraftToTistory(page, draft, blogUrl, {});
+    await saveSession(context);
 
     const log = loadJson(PUBLISHED_LOG_PATH, []);
     log.push({ title: draft.title, publishedAt: new Date().toISOString(), url: result.publishedUrl, itemGuids: draft.itemGuids || [] });
@@ -216,6 +227,7 @@ async function capturePreview(draft) {
     await page.goto(`${blogUrl.replace(/\/$/, "")}/manage/newpost/`, { waitUntil: "domcontentloaded", timeout: 20000 });
     await page.waitForSelector("#post-title-inp", { timeout: 20000 });
     await page.waitForFunction(() => window.tinymce && window.tinymce.get("editor-tistory"), { timeout: 20000 });
+    await saveSession(context);
 
     await page.fill("#post-title-inp", draft.title);
     await page.evaluate((html) => {
@@ -233,6 +245,61 @@ async function capturePreview(draft) {
     await browser.close();
     isBrowserBusy = false;
   }
+}
+
+// Visits the editor every few hours so the session never sits idle long
+// enough to expire. If it has expired anyway, tries the Kakao login button
+// (works without a password while Kakao itself still remembers the login);
+// failing that, opens the visible login window so it can be redone by hand.
+const KEEPALIVE_INTERVAL_MS = 3 * 60 * 60 * 1000;
+let loginWindowOpen = false;
+
+async function keepSessionAlive() {
+  if (isBrowserBusy || !fs.existsSync(AUTH_FILE)) return;
+  const blogUrl = getBlogUrl();
+  if (!blogUrl) return;
+  const manageUrl = `${blogUrl.replace(/\/$/, "")}/manage`;
+
+  isBrowserBusy = true;
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext({ storageState: AUTH_FILE });
+    const page = await context.newPage();
+    await page.goto(`${manageUrl}/newpost/`, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(3000);
+
+    if (!page.url().startsWith(manageUrl)) {
+      const kakaoBtn = page.locator("text=카카오계정으로 로그인");
+      if (await kakaoBtn.count()) {
+        await kakaoBtn.first().click();
+        await page.waitForURL((u) => u.toString().startsWith(manageUrl), { timeout: 20000 }).catch(() => {});
+      }
+    }
+
+    if (page.url().startsWith(manageUrl)) {
+      await saveSession(context);
+      console.log("[session] 로그인 세션 갱신 완료");
+    } else {
+      sessionExpired = true;
+      console.error("[session] 로그인이 만료되었습니다. 로그인 창을 엽니다.");
+      openLoginWindow(blogUrl);
+    }
+  } catch (err) {
+    console.error("[session] 세션 확인 실패 (다음에 다시 시도):", err.message.split("\n")[0]);
+  } finally {
+    await browser.close();
+    isBrowserBusy = false;
+  }
+}
+
+function openLoginWindow(blogUrl) {
+  if (loginWindowOpen) return;
+  loginWindowOpen = true;
+  const child = require("child_process").spawn(process.execPath, [path.join(__dirname, "tistory-login.js"), blogUrl], { stdio: "inherit" });
+  child.on("exit", (code) => {
+    loginWindowOpen = false;
+    if (code === 0) sessionExpired = false;
+  });
 }
 
 async function checkAndPublishDue() {
@@ -291,6 +358,8 @@ function pushLocalChange(message) {
 
 setInterval(checkAndPublishDue, CHECK_INTERVAL_MS);
 setInterval(syncFromGit, SYNC_INTERVAL_MS);
+setInterval(keepSessionAlive, KEEPALIVE_INTERVAL_MS);
+setTimeout(keepSessionAlive, 30 * 1000);
 checkAndPublishDue();
 syncFromGit();
 
