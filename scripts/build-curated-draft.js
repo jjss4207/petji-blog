@@ -17,7 +17,10 @@
 //       "howto": "참여 -- how to participate",
 //       "link": "original post URL (used to look up the thumbnail and event page)",
 //       "source": "blog name",
-//       "eventUrl": "optional -- the event page itself; looked up from the post if omitted"
+//       "eventUrl": "optional -- the event page itself; looked up from the post if omitted",
+//       "images": [1, 3]  // optional -- 1-based positions of the post's event-page
+//                         // captures (see scripts/inspect-post.js); the first is
+//                         // the main image, the rest go under the details
 //     }
 //   ]
 // }
@@ -35,6 +38,7 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 const { fetchThumbnail } = require("./lib/thumbnail");
 const { fetchEventUrl } = require("./lib/event-url");
+const { fetchPostImagesAsDataUris } = require("./lib/post-images");
 
 const ROOT = path.join(__dirname, "..");
 const USED_PATH = path.join(ROOT, "data", "used-items.json");
@@ -78,9 +82,13 @@ function row(label, value) {
 // One item -> one full, standalone post body (not a card in a list -- this
 // IS the whole post, so no outer bordered box, just spaced sections).
 function buildPostHtml(it) {
-  const image = it.thumbnail
-    ? `<img src="${it.thumbnail}" alt="" style="display:block;width:100%;max-height:320px;object-fit:cover;border-radius:12px;margin:0 0 20px;" />`
+  const [mainImage, ...moreImages] = it.images.length ? it.images : [it.thumbnail].filter(Boolean);
+  const image = mainImage
+    ? `<img src="${mainImage}" alt="" style="display:block;width:100%;max-width:466px;border-radius:12px;margin:0 0 20px;" />`
     : "";
+  const extra = moreImages
+    .map((src) => `<img src="${src}" alt="" style="display:block;width:100%;max-width:466px;border-radius:12px;margin:0 0 20px;" />`)
+    .join("\n  ");
   const rows = [row("기간", it.period), row("혜택", it.benefit), row("참여", it.howto)].filter(Boolean).join("\n");
   return `<div style="font-family:${FONT};">
   ${image}
@@ -88,6 +96,7 @@ function buildPostHtml(it) {
   <div style="margin:0 0 18px;">
 ${rows}
   </div>
+  ${extra}
   ${eventLink(it.eventUrl)}
 </div>`;
 }
@@ -120,6 +129,7 @@ async function main() {
   const withThumbnails = await Promise.all(
     items.map(async (it) => ({
       ...it,
+      images: it.link && it.images?.length ? await fetchPostImagesAsDataUris(it.link, it.images) : [],
       thumbnail: it.link ? await fetchThumbnail(it.link) : null,
       eventUrl: it.eventUrl || (it.link ? await fetchEventUrl(it.link, excerpts[it.guid] || "") : null),
     }))
