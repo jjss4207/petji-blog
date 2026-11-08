@@ -15,8 +15,9 @@
 //       "period": "기간 -- when this runs, or '정보 없음'",
 //       "benefit": "혜택 -- what you actually get",
 //       "howto": "참여 -- how to participate",
-//       "link": "original post URL (also used to look up a thumbnail)",
-//       "source": "blog name"
+//       "link": "original post URL (used to look up the thumbnail and event page)",
+//       "source": "blog name",
+//       "eventUrl": "optional -- the event page itself; looked up from the post if omitted"
 //     }
 //   ]
 // }
@@ -33,10 +34,12 @@ const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 const { fetchThumbnail } = require("./lib/thumbnail");
+const { fetchEventUrl } = require("./lib/event-url");
 
 const ROOT = path.join(__dirname, "..");
 const USED_PATH = path.join(ROOT, "data", "used-items.json");
 const DRAFTS_PATH = path.join(ROOT, "data", "drafts", "pending.json");
+const ITEMS_PATH = path.join(ROOT, "data", "items.json");
 
 const COLOR = {
   accent: "#0e7c66",
@@ -85,8 +88,15 @@ function buildPostHtml(it) {
   <div style="margin:0 0 18px;">
 ${rows}
   </div>
-  <a href="${escapeHtml(it.link)}" target="_blank" rel="noopener" style="display:inline-block;font-size:13px;color:${COLOR.accent};text-decoration:none;border-bottom:1px solid currentColor;">${escapeHtml(it.source || "")} · 원문 보기</a>
+  ${eventLink(it.eventUrl)}
 </div>`;
+}
+
+// Links straight to the event page (no source-blog credit). Posts whose
+// event page couldn't be found just go without a link.
+function eventLink(url) {
+  if (!url) return "";
+  return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="display:inline-block;font-size:15px;font-weight:700;color:#fff;background:${COLOR.accent};text-decoration:none;padding:10px 18px;border-radius:8px;">이벤트 페이지 바로가기 →</a>`;
 }
 
 function run(cmd, args) {
@@ -106,8 +116,13 @@ async function main() {
     return;
   }
 
+  const excerpts = Object.fromEntries(loadJson(ITEMS_PATH, []).map((i) => [i.guid, i.excerpt || ""]));
   const withThumbnails = await Promise.all(
-    items.map(async (it) => ({ ...it, thumbnail: it.link ? await fetchThumbnail(it.link) : null }))
+    items.map(async (it) => ({
+      ...it,
+      thumbnail: it.link ? await fetchThumbnail(it.link) : null,
+      eventUrl: it.eventUrl || (it.link ? await fetchEventUrl(it.link, excerpts[it.guid] || "") : null),
+    }))
   );
 
   const drafts = loadJson(DRAFTS_PATH, []);
