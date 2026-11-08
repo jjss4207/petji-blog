@@ -1879,16 +1879,5 @@
     "createdAt": "2026-11-07T12:04:11.700Z",
     "source": "ai-curated",
     "eventUrl": null
-  },
-  {
-    "id": "mw6cv67oim93",
-    "title": "키움증권 막대과자 채우기 게임하면 포인트 최대 5만P",
-    "html": "<div style=\"font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;\">\n  \n  <p style=\"font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0e7c66;font-weight:700;margin:0 0 10px;\">증권 · 게임미션</p>\n  <div style=\"margin:0 0 18px;\">\n    <div style=\"display:flex;gap:10px;font-size:15px;margin:0 0 6px;\">\n      <span style=\"color:#0e7c66;font-weight:700;font-size:13px;min-width:34px;flex-shrink:0;padding-top:2px;\">기간</span>\n      <span style=\"color:#14231f;\">정보 없음</span>\n    </div>\n    <div style=\"display:flex;gap:10px;font-size:15px;margin:0 0 6px;\">\n      <span style=\"color:#0e7c66;font-weight:700;font-size:13px;min-width:34px;flex-shrink:0;padding-top:2px;\">혜택</span>\n      <span style=\"color:#14231f;\">게임으로 막대과자를 채우면 최대 5만 포인트 즉시 지급(상금 확정 후에는 재도전 불가, 실패 시 카카오톡 공유로 1회 추가 기회)</span>\n    </div>\n    <div style=\"display:flex;gap:10px;font-size:15px;margin:0 0 6px;\">\n      <span style=\"color:#0e7c66;font-weight:700;font-size:13px;min-width:34px;flex-shrink:0;padding-top:2px;\">참여</span>\n      <span style=\"color:#14231f;\">키움증권 이벤트 페이지 접속 후 막대과자 채우기 게임 참여</span>\n    </div>\n  </div>\n  <a href=\"https://evt.kiwoom.com/e/m/wm/event/evtUserEC260092View?from=133\" target=\"_blank\" rel=\"noopener\" style=\"display:inline-block;font-size:15px;font-weight:700;color:#fff;background:#0e7c66;text-decoration:none;padding:10px 18px;border-radius:8px;\">이벤트 페이지 바로가기 →</a>\n</div>",
-    "itemGuids": [
-      "https://blog.naver.com/daolrich/224466358082"
-    ],
-    "createdAt": "2026-11-07T12:04:11.700Z",
-    "source": "ai-curated",
-    "eventUrl": "https://evt.kiwoom.com/e/m/wm/event/evtUserEC260092View?from=133"
   }
 ]
